@@ -5,9 +5,22 @@ const init = async () => {
   const server = Hapi.server({
     port: 5000,
     host: process.env.NODE_ENV !== "production" ? "localhost" : "0.0.0.0",
+    routes: {
+      cors: {
+        origin: ["*"],
+      },
+    },
   });
 
   let books = [];
+
+  server.route({
+    method: "GET",
+    path: "/",
+    handler: (request, h) => {
+      return { message: "Hello, Selamat Datang!", books: "/books" };
+    },
+  });
 
   // Kriteria 3: Menyimpan buku
   server.route({
@@ -227,7 +240,7 @@ const init = async () => {
   });
 
   await server.start();
-  console.log(`Server berjalan pada port ${server.info.port}`);
+  console.log(`Server berjalan pada port ${server.info.uri}`);
 };
 
 process.on("unhandledRejection", (err) => {
