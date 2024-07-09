@@ -4,7 +4,9 @@
   "description": "Bookshelf API project",
   "main": "server.js",
   "scripts": {
-    "start:prod": "SET NODE_ENV=production && node ./src/server.js",
+    "start:prod": "node ./start-prod.js",
+    "start:prod:win": "SET NODE_ENV=production && node ./src/server.js",
+    "start:prod:unix": "NODE_ENV=production node ./src/server.js",
     "start:dev": "nodemon ./src/server.js",
     "lint": "eslint ./src"
   },
