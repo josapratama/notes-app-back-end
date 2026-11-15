@@ -3,7 +3,7 @@ const { nanoid } = require("nanoid");
 
 const init = async () => {
   const server = Hapi.server({
-    port: 5000,
+    port: process.env.PORT || 5000,
     host: process.env.NODE_ENV !== "production" ? "localhost" : "0.0.0.0",
     routes: {
       cors: {
@@ -17,8 +17,27 @@ const init = async () => {
   server.route({
     method: "GET",
     path: "/",
-    handler: (request, h) => {
-      return { message: "Hello, Selamat Datang!", books: "/books" };
+    handler: () => {
+      return {
+        message: "Bookshelf REST API Server",
+        status: "online",
+        endpoints: {
+          books: "/books",
+          health: "/health",
+        },
+      };
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/health",
+    handler: () => {
+      return {
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        totalBooks: books.length,
+      };
     },
   });
 
@@ -36,7 +55,7 @@ const init = async () => {
         pageCount,
         readPage,
         reading,
-      } = request.payload;
+      } = request.payload || {};
 
       if (!name) {
         return h
@@ -65,14 +84,14 @@ const init = async () => {
       const newBook = {
         id,
         name,
-        year,
+        year: Number(year),
         author,
         summary,
         publisher,
-        pageCount,
-        readPage,
+        pageCount: Number(pageCount),
+        readPage: Number(readPage),
         finished,
-        reading,
+        reading: Boolean(reading),
         insertedAt,
         updatedAt,
       };
@@ -91,16 +110,39 @@ const init = async () => {
     },
   });
 
-  // Kriteria 4: Menampilkan seluruh buku
+  // Kriteria 4: Menampilkan seluruh buku (mendukung query name, reading, finished)
   server.route({
     method: "GET",
     path: "/books",
     handler: (request, h) => {
-      const booksOverview = books.map(({ id, name, publisher }) => ({
+      const { name, reading, finished } = request.query;
+
+      let filteredBooks = books;
+
+      if (name !== undefined) {
+        filteredBooks = filteredBooks.filter((book) =>
+          book.name.toLowerCase().includes(name.toLowerCase())
+        );
+      }
+
+      if (reading !== undefined) {
+        filteredBooks = filteredBooks.filter(
+          (book) => Number(book.reading) === Number(reading)
+        );
+      }
+
+      if (finished !== undefined) {
+        filteredBooks = filteredBooks.filter(
+          (book) => Number(book.finished) === Number(finished)
+        );
+      }
+
+      const booksOverview = filteredBooks.map(({ id, name, publisher }) => ({
         id,
         name,
         publisher,
       }));
+
       return h
         .response({
           status: "success",
@@ -155,7 +197,7 @@ const init = async () => {
         pageCount,
         readPage,
         reading,
-      } = request.payload;
+      } = request.payload || {};
 
       if (!name) {
         return h
@@ -191,13 +233,13 @@ const init = async () => {
       books[index] = {
         ...books[index],
         name,
-        year,
+        year: Number(year),
         author,
         summary,
         publisher,
-        pageCount,
-        readPage,
-        reading,
+        pageCount: Number(pageCount),
+        readPage: Number(readPage),
+        reading: Boolean(reading),
         updatedAt,
         finished: pageCount === readPage,
       };
@@ -240,7 +282,7 @@ const init = async () => {
   });
 
   await server.start();
-  console.log(`Server berjalan pada port ${server.info.uri}`);
+  console.log(`Server berjalan pada ${server.info.uri}`);
 };
 
 process.on("unhandledRejection", (err) => {
