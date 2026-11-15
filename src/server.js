@@ -1,5 +1,36 @@
 const Hapi = require("@hapi/hapi");
 const { nanoid } = require("nanoid");
+const fs = require("fs");
+const path = require("path");
+
+const DATA_DIR = path.resolve(__dirname, "../data");
+const DATA_FILE = path.join(DATA_DIR, "books.json");
+
+function loadBooksFromFile() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(DATA_FILE)) {
+      const content = fs.readFileSync(DATA_FILE, "utf-8");
+      return JSON.parse(content) || [];
+    }
+  } catch (err) {
+    console.error("Error reading books data file, fallback to empty array", err);
+  }
+  return [];
+}
+
+function saveBooksToFile(books) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(DATA_FILE, JSON.stringify(books, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error saving books to file", err);
+  }
+}
 
 const init = async () => {
   const server = Hapi.server({
@@ -12,7 +43,7 @@ const init = async () => {
     },
   });
 
-  let books = [];
+  let books = loadBooksFromFile();
 
   server.route({
     method: "GET",
@@ -21,6 +52,7 @@ const init = async () => {
       return {
         message: "Bookshelf REST API Server",
         status: "online",
+        documentation: "/docs",
         endpoints: {
           books: "/books",
           health: "/health",
@@ -37,7 +69,75 @@ const init = async () => {
         status: "ok",
         timestamp: new Date().toISOString(),
         totalBooks: books.length,
+        persistence: "active",
       };
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/docs",
+    handler: (request, h) => {
+      const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookshelf API Documentation</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 40px 20px; }
+    .container { max-width: 900px; margin: auto; }
+    h1 { color: #38bdf8; margin-bottom: 8px; }
+    .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; margin-right: 8px; }
+    .get { background: #0284c7; color: white; }
+    .post { background: #16a34a; color: white; }
+    .put { background: #d97706; color: white; }
+    .delete { background: #dc2626; color: white; }
+    pre { background: #0f172a; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #a5f3fc; }
+    .desc { color: #94a3b8; font-size: 14px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📚 Bookshelf REST API Documentation</h1>
+    <p style="color: #94a3b8; margin-bottom: 24px;">Dicoding Indonesia Backend Developer Submission Compliant API</p>
+
+    <div class="card">
+      <span class="badge post">POST</span> <strong>/books</strong>
+      <p class="desc">Menyimpan data buku baru.</p>
+      <pre>Payload: { "name": "Buku A", "year": 2020, "author": "John", "summary": "Deskripsi", "publisher": "Gramedia", "pageCount": 100, "readPage": 50, "reading": false }</pre>
+    </div>
+
+    <div class="card">
+      <span class="badge get">GET</span> <strong>/books</strong>
+      <p class="desc">Mengambil seluruh ringkasan buku. Mendukung query filter:</p>
+      <pre>Query parameters: ?name=dicoding &reading=1 &finished=0</pre>
+    </div>
+
+    <div class="card">
+      <span class="badge get">GET</span> <strong>/books/{bookId}</strong>
+      <p class="desc">Mengambil rincian detail satu buku berdasarkan ID.</p>
+    </div>
+
+    <div class="card">
+      <span class="badge put">PUT</span> <strong>/books/{bookId}</strong>
+      <p class="desc">Memperbarui data buku berdasarkan ID.</p>
+    </div>
+
+    <div class="card">
+      <span class="badge delete">DELETE</span> <strong>/books/{bookId}</strong>
+      <p class="desc">Menghapus data buku berdasarkan ID.</p>
+    </div>
+
+    <div class="card">
+      <span class="badge get">GET</span> <strong>/health</strong>
+      <p class="desc">Server uptime and database status check.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+      return h.response(html).type("text/html");
     },
   });
 
@@ -97,6 +197,7 @@ const init = async () => {
       };
 
       books.push(newBook);
+      saveBooksToFile(books);
 
       return h
         .response({
@@ -244,6 +345,8 @@ const init = async () => {
         finished: pageCount === readPage,
       };
 
+      saveBooksToFile(books);
+
       return h
         .response({
           status: "success",
@@ -271,6 +374,7 @@ const init = async () => {
       }
 
       books.splice(index, 1);
+      saveBooksToFile(books);
 
       return h
         .response({
